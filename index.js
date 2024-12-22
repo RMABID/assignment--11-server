@@ -24,6 +24,7 @@ async function run() {
     const historicalCollection = client
       .db("artifactsDB")
       .collection("artifactsData");
+    const likeCollection = client.db("artifactsDB").collection("like");
 
     app.get("/historical", async (req, res) => {
       const email = req.query.email;
@@ -68,6 +69,31 @@ async function run() {
         updated,
         options
       );
+      res.send(result);
+    });
+
+    //Like collection data with user
+
+    app.post("/historical-like", async (req, res) => {
+      const likeData = req.body;
+
+      // 1. like data add
+      const query = { email: likeData?.email, like_id: likeData?.like_id };
+      const alreadyLike = await likeCollection.findOne(query);
+      if (alreadyLike) {
+        return res.status(400).send("You Have already like on this post!!");
+      }
+      // 2. user like data
+      const result = await likeCollection.insertOne(likeData);
+      // 3. like data count
+
+      const filter = { _id: new ObjectId(likeData?.like_id) };
+
+      const updatedCountLike = {
+        $inc: { like_count: 1 },
+      };
+      await historicalCollection.updateOne(filter, updatedCountLike);
+
       res.send(result);
     });
 
