@@ -75,7 +75,12 @@ async function run() {
     //Like collection data with user
 
     app.get("/historical-like", async (req, res) => {
-      const result = await likeCollection.find().toArray();
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query.email = email;
+      }
+      const result = await likeCollection.find(query).toArray();
       res.send(result);
     });
 
