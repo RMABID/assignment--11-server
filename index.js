@@ -3,11 +3,11 @@ const cors = require("cors");
 const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 5000;
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 app.use(express.json());
 app.use(cors());
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `mongodb+srv://${process.env.SERVER_USER}:${process.env.SERVER_USER_PASS}@cluster0.ygtr7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -25,9 +25,33 @@ async function run() {
       .db("artifactsDB")
       .collection("artifactsData");
 
+    app.get("/historical", async (req, res) => {
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query.email = email;
+      }
+      const result = await historicalCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/historical/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await historicalCollection.findOne(query);
+      res.send(result);
+    });
+
     app.post("/historical", async (req, res) => {
       const newArtifacts = req.body;
       const result = await historicalCollection.insertOne(newArtifacts);
+      res.send(result);
+    });
+
+    app.delete("/historical/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await historicalCollection.deleteOne(query);
       res.send(result);
     });
 
@@ -40,7 +64,7 @@ async function run() {
     );
   } finally {
     // Ensures that the client will close when you finish/error
-    await client.close();
+    // await client.close();
   }
 }
 run().catch(console.dir);
