@@ -98,6 +98,15 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/highest-like-history", async (req, res) => {
+      const result = await historicalCollection
+        .find({})
+        .sort({ like_count: -1 })
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
+
     app.get("/historical", verifyToken, async (req, res) => {
       const email = req.query.email;
       const decodedEmail = req.user?.email;
