@@ -2,11 +2,20 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 require("dotenv").config();
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
+const corsOptions = {
+  origin: ["http://localhost:5173"],
+  credentials: true,
+  optionSuccessStatus: 200,
+};
+
+app.use(cookieParser());
+app.use(cors(corsOptions));
 app.use(express.json());
-app.use(cors());
 
 const uri = `mongodb+srv://${process.env.SERVER_USER}:${process.env.SERVER_USER_PASS}@cluster0.ygtr7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -19,6 +28,27 @@ const client = new MongoClient(uri, {
   },
 });
 
+//verifyToken
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  } else {
+    jwt.verify(token, process.env.SECRET_KEY, (error, decoded) => {
+      if (error) {
+        return res.status(401).send({ message: "unauthorized access" });
+      } else {
+        req.user = decoded;
+      }
+    });
+  }
+
+  req.ph = "ho";
+  next();
+};
+
 async function run() {
   try {
     const historicalCollection = client
@@ -26,20 +56,59 @@ async function run() {
       .collection("artifactsData");
     const likeCollection = client.db("artifactsDB").collection("like");
 
+    // jwt create
+
+    app.post("/jwt", async (req, res) => {
+      const email = req.body;
+
+      const token = jwt.sign(email, process.env.SECRET_KEY, {
+        expiresIn: "5h",
+      });
+
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
+        .send({ message: true });
+    });
+
+    app.get("/logout", async (req, res) => {
+      res
+        .clearCookie("token", {
+          maxAge: 0,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
+        .send({ message: true });
+    });
+
     // all history data collection find
 
-    app.get("/historical", async (req, res) => {
-      const email = req.query.email;
+    app.get("/all-historical-data", async (req, res) => {
       const search = req.query.search;
       let query = {};
-      if (email) {
-        query.email = email;
-      }
-
       if (search) {
         query = {
           artifact_name: { $regex: search, $options: "i" },
         };
+      }
+      const result = await historicalCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/historical", verifyToken, async (req, res) => {
+      const decodedEmail = req.user?.email;
+      const email = req.query.email;
+
+      if (decodedEmail !== email) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+
+      let query = {};
+      if (email) {
+        query.email = email;
       }
 
       const result = await historicalCollection.find(query).toArray();
