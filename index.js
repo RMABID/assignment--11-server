@@ -99,8 +99,8 @@ async function run() {
     });
 
     app.get("/historical", verifyToken, async (req, res) => {
-      const decodedEmail = req.user?.email;
       const email = req.query.email;
+      const decodedEmail = req.user?.email;
 
       if (decodedEmail !== email) {
         return res.status(401).send({ message: "unauthorized access" });
