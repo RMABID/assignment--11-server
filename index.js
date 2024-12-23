@@ -26,12 +26,22 @@ async function run() {
       .collection("artifactsData");
     const likeCollection = client.db("artifactsDB").collection("like");
 
+    // all history data collection find
+
     app.get("/historical", async (req, res) => {
       const email = req.query.email;
+      const search = req.query.search;
       let query = {};
       if (email) {
         query.email = email;
       }
+
+      if (search) {
+        query = {
+          artifact_name: { $regex: search, $options: "i" },
+        };
+      }
+
       const result = await historicalCollection.find(query).toArray();
       res.send(result);
     });
@@ -103,6 +113,8 @@ async function run() {
         $inc: { like_count: 1 },
       };
       await historicalCollection.updateOne(filter, updatedCountLike);
+
+      //dislike
 
       res.send(result);
     });
