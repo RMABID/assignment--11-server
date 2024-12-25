@@ -8,7 +8,11 @@ const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const corsOptions = {
-  origin: ["http://localhost:5173"],
+  origin: [
+    "http://localhost:5173",
+    "https://historical-artifacts.web.app",
+    "https://historical-artifacts.firebaseapp.com",
+  ],
   credentials: true,
   optionSuccessStatus: 200,
 };
@@ -45,7 +49,6 @@ const verifyToken = (req, res, next) => {
     });
   }
 
-  req.ph = "ho";
   next();
 };
 
@@ -102,7 +105,7 @@ async function run() {
       const result = await historicalCollection
         .find({})
         .sort({ like_count: -1 })
-        .limit(6)
+        .limit(8)
         .toArray();
       res.send(result);
     });
@@ -160,6 +163,20 @@ async function run() {
       res.send(result);
     });
 
+    // update Status
+
+    app.patch("/like-update/:id", async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const statusUpdate = {
+        $set: { status },
+      };
+
+      const result = await historicalCollection.updateOne(filter, statusUpdate);
+      res.send(result);
+    });
+
     //Like collection data with user
 
     app.get("/historical-like", async (req, res) => {
@@ -174,21 +191,26 @@ async function run() {
 
     app.post("/historical-like", async (req, res) => {
       const likeData = req.body;
-
       // 1. like data add
       const query = { email: likeData?.email, like_id: likeData?.like_id };
       const alreadyLike = await likeCollection.findOne(query);
-      if (alreadyLike) {
-        return res.status(400).send("You Have already like on this post!!");
-      }
-      // 2. user like data
-      const result = await likeCollection.insertOne(likeData);
-      // 3. like data count
 
+      if (alreadyLike) {
+        // return res.status(400).send("You Have already like on this post!!");
+        return await likeCollection.deleteOne(query);
+      }
+
+      const result = await likeCollection.insertOne(likeData);
+      // 2. user like data
+
+      // 3. like data count
       const filter = { _id: new ObjectId(likeData?.like_id) };
 
       const updatedCountLike = {
         $inc: { like_count: 1 },
+        // $inc: {
+        //   like_count: status === "Dislike" ? 1 : -1,
+        // },
       };
       await historicalCollection.updateOne(filter, updatedCountLike);
 
@@ -198,12 +220,12 @@ async function run() {
     });
 
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -216,5 +238,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  // console.log(`Example app listening on port ${port}`);
 });
