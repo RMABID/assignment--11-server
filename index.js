@@ -9,7 +9,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const corsOptions = {
   origin: [
-    "http://localhost:5173",
+    "http://localhost:5174",
     "https://historical-artifacts.web.app",
     "https://historical-artifacts.firebaseapp.com",
   ],
@@ -91,15 +91,33 @@ async function run() {
 
     app.get("/all-historical-data", async (req, res) => {
       const search = req.query.search;
+      const filter = req.query.filter;
       let query = {};
       if (search) {
         query = {
           artifact_name: { $regex: search, $options: "i" },
         };
       }
+      if (filter) {
+        query = {
+          artifact_type: filter,
+        };
+      }
       const result = await historicalCollection.find(query).toArray();
       res.send(result);
     });
+
+    // app.get("/all-artifact", async (req, res) => {
+    //   const filter = req.query.filter;
+    //   let query = {};
+    //   if (filter) {
+    //     query = {
+    //       artifact_type: filter,
+    //     };
+    //   }
+    //   const result = await historicalCollection.find(query).toArray();
+    //   res.send(result);
+    // });
 
     app.get("/highest-like-history", async (req, res) => {
       const result = await historicalCollection
