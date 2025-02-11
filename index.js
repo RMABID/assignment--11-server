@@ -9,7 +9,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const corsOptions = {
   origin: [
-    "http://localhost:5174",
+    "http://localhost:5173",
     "https://historical-artifacts.web.app",
     "https://historical-artifacts.firebaseapp.com",
   ],
@@ -210,40 +210,29 @@ async function run() {
     app.post("/historical-like", async (req, res) => {
       const likeData = req.body;
       // 1. like data add
+      if (!likeData?.email || !likeData?.like_id) {
+        return res.status(400).send({ message: "Invalid request data." });
+      }
+
       const query = { email: likeData?.email, like_id: likeData?.like_id };
       const alreadyLike = await likeCollection.findOne(query);
+      const filter = { _id: new ObjectId(likeData?.like_id) };
 
       if (alreadyLike) {
         // return res.status(400).send("You Have already like on this post!!");
-        return await likeCollection.deleteOne(query);
+        await likeCollection.deleteOne(query);
+        await historicalCollection.updateOne(filter, {
+          $inc: { like_count: -1 },
+        });
+        return res.send({ message: "Like removed", like: false });
+      } else {
+        await likeCollection.insertOne(likeData);
+        await historicalCollection.updateOne(filter, {
+          $inc: { like_count: 1 },
+        });
+        return res.json({ message: "Like added", like: true });
       }
-
-      const result = await likeCollection.insertOne(likeData);
-      // 2. user like data
-
-      // 3. like data count
-      const filter = { _id: new ObjectId(likeData?.like_id) };
-
-      const updatedCountLike = {
-        $inc: { like_count: 1 },
-        // $inc: {
-        //   like_count: status === "Dislike" ? 1 : -1,
-        // },
-      };
-      await historicalCollection.updateOne(filter, updatedCountLike);
-
-      //dislike
-
-      res.send(result);
     });
-
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
